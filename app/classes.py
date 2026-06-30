@@ -1,6 +1,16 @@
 import app.utils.db_methods as db_service
 import time
+import re
 from datetime import datetime
+
+def is_valid_email(email: str) -> bool:
+    """Validate email format using regex."""
+    pattern = r"^[\w\.-]+@[\w\.-]+\.\w+$"
+    return bool(re.match(pattern, email))
+
+def is_valid_cpf(cpf: str) -> bool:
+    """Validate CPF: must be exactly 11 digits."""
+    return len(cpf) == 11 and cpf.isdigit()
 
 class User:
     @staticmethod
@@ -31,8 +41,17 @@ class User:
                     print("Register Master Manager details")
                     first_name = input("Enter your first name: ")
                     last_name = input("Enter your last name: ")
+                    
                     email = input("Enter your email: ")
+                    while not is_valid_email(email):
+                        print("\033[1mInvalid email format! Please try again (e.g. user@example.com)\033[0m")
+                        email = input("Enter your email: ")
+                        
                     login_cpf = input("Enter your CPF (numbers only): ")
+                    while not is_valid_cpf(login_cpf):
+                        print("\033[1mInvalid CPF! It must contain exactly 11 digits (numbers only).\033[0m")
+                        login_cpf = input("Enter your CPF (numbers only): ")
+                        
                     password = input("Enter your password: ")
                     master_password = input("Create your privileged access password: ")
 
@@ -45,8 +64,17 @@ class User:
                     if permission:
                         first_name = input("Enter your first name: ")
                         last_name = input("Enter your last name: ")
+                        
                         email = input("Enter your email: ")
+                        while not is_valid_email(email):
+                            print("\033[1mInvalid email format! Please try again (e.g. user@example.com)\033[0m")
+                            email = input("Enter your email: ")
+                            
                         login_cpf = input("Enter your CPF (numbers only): ")
+                        while not is_valid_cpf(login_cpf):
+                            print("\033[1mInvalid CPF! It must contain exactly 11 digits (numbers only).\033[0m")
+                            login_cpf = input("Enter your CPF (numbers only): ")
+                            
                         password = input("Enter your password: ")
                         master_password = input("Create your privileged access password: ")
                         db_service.register_user(first_name, last_name, email, login_cpf, password, user_type, master_password)
@@ -57,8 +85,17 @@ class User:
             elif user_type == "U":
                 first_name = input("Enter your first name: ")
                 last_name = input("Enter your last name: ")
+                
                 email = input("Enter your email: ")
+                while not is_valid_email(email):
+                    print("\033[1mInvalid email format! Please try again (e.g. user@example.com)\033[0m")
+                    email = input("Enter your email: ")
+                    
                 login_cpf = input("Enter your CPF (numbers only): ")
+                while not is_valid_cpf(login_cpf):
+                    print("\033[1mInvalid CPF! It must contain exactly 11 digits (numbers only).\033[0m")
+                    login_cpf = input("Enter your CPF (numbers only): ")
+                    
                 password = input("Enter your password: ")
 
                 db_service.register_user(first_name, last_name, email, login_cpf, password, user_type)
@@ -289,7 +326,16 @@ class Manager(User):
                 finalidade = input("Enter project purpose: ")
                 descricao = input("Enter project description: ")
                 data_criacao = datetime.now().strftime("%d/%m/%Y")
-                orcamento = float(input("Enter budget allocated for the project: "))
+                
+                orcamento = -1.0
+                while orcamento <= 0:
+                    try:
+                        orcamento = float(input("Enter budget allocated for the project: "))
+                        if orcamento <= 0:
+                            print("\033[1mBudget must be a positive number!\033[0m")
+                    except ValueError:
+                        print("\033[1mPlease enter a valid numeric value for the budget!\033[0m")
+                        orcamento = -1.0
 
                 db_service.create_project(cpf_gerente, id_usuarios, nome_projeto, qtd_funcionarios, finalidade, descricao, data_criacao, orcamento)
                 print("Creating project...")
