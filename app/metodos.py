@@ -1,150 +1,162 @@
 import app.utils.db_methods as db_service
 import classes as cl
-import app.metodos as M
 
-def login_Acesso():
+def login_access() -> str:
     menu = """
-                             Sistema de Gestão de Projetos
+                             Project Management System
                              
     1 - Login
-    2 - Cadastro de Usuário
+    2 - Register User
     """
 
-    opc_menu = 0
-    sucesso = False
-    while (not sucesso):
-        while(opc_menu not in [1,2]):
+    menu_option = 0
+    success = False
+    login_cpf = ""
+    
+    while not success:
+        while menu_option not in [1, 2]:
             print(menu)
-            opc_menu = int(input("Digite uma opção: "))
-            if(opc_menu == 1):
-                login, senha = cl.Usuario.login()
-                sucesso = M.db_service.verifica_Login(login, senha)
-            elif(opc_menu == 2):
-                login, senha = cl.Usuario.cadastro()
+            try:
+                menu_option = int(input("Select an option: "))
+            except ValueError:
+                print("\n\033[1mPlease enter a valid number!\033[0m")
+                continue
+                
+            if menu_option == 1:
+                login_cpf, password = cl.User.login()
+                success = db_service.verify_login(login_cpf, password)
+            elif menu_option == 2:
+                login_cpf, password = cl.User.register()
+                success = True
             else:
-                print("\n\033[1mDigite uma opção válida!\033[0m")
+                print("\n\033[1mPlease select a valid option!\033[0m")
         
-        opc_menu = 0
+        if not success:
+            menu_option = 0
 
-    return login
+    return login_cpf
 
+def main_menu(login_cpf: str) -> None:
+    user_type = str(db_service.get_user_type(login_cpf))
 
-def cadastro(login):
-    menu = """
-                             Sistema de Gestão de Projetos
-        Deseja realizar um novo cadastro de Gerente? (Ex.: Sim/Nao)
-    """
-    print(menu)
-    opc = input()
-
-
-def menu(login):
-    tipo_usuario = str(db_service.verifica_tipo_usuario(login))
-
-    if(tipo_usuario == "U"):
-        menu_Principal = """
-                                    Sistema de Gestão de Projetos
+    if user_type == "U":
+        menu_text = """
+                                    Project Management System
         
-        1 - Progresso dos projetos                                 3 - Finalizar Programa
-        2 - Comunicação                                            
+        1 - Project Progress                                       3 - Exit Program
+        2 - Communication                                            
         """
     
-        opc_menu = None
-        while(opc_menu != 0):
-            print(menu_Principal)
-            opc_menu = int(input("Digite uma opção: "))
+        menu_option = None
+        while menu_option != 0:
+            print(menu_text)
+            try:
+                menu_option = int(input("Select an option: "))
+            except ValueError:
+                print("Invalid Option! Please enter a number!")
+                continue
 
-            if(opc_menu == 1):
-                opc_menu = cl.Usuario.progresso_projeto()
-            elif(opc_menu == 2):
-                opc_menu = cl.Usuario.comunicacao()
-            elif(opc_menu == 3):
-                print("Finalizando o programa!")
-                opc_menu = 0
+            if menu_option == 1:
+                menu_option = cl.User.project_progress()
+            elif menu_option == 2:
+                menu_option = cl.User.communication()
+            elif menu_option == 3:
+                print("Exiting program!")
+                menu_option = 0
             else:
-                print("Opção Inválida! Digite novamente!")   
+                print("Invalid Option! Try again!")   
 
-    elif(tipo_usuario == "G"):
-        menu_Principal = """
-                                        Sistema de Gestão de Projetos
+    elif user_type == "G":
+        menu_text = """
+                                        Project Management System
             
-            1 - Criação de Projetos                                    6 - Geração de Relatórios
-            2 - Atribuição de tarefas                                  7 - Comunicação
-            3 - Progresso dos projetos                                 8 - Orçamentos
-            4 - Dashboard dos Projetos                                 9 - Histórico Atividades
-            5 - Gerenciamento de Prazos                                10 - Finalizar Programa                                  
+            1 - Create Project                                         6 - Generate Reports
+            2 - Assign Tasks                                           7 - Communication
+            3 - Project Progress                                       8 - Budgets
+            4 - Project Dashboard                                      9 - Activity History
+            5 - Deadline Management                                    10 - Exit Program                                  
         """
 
-        opc_menu = None
-        while(opc_menu != 0):
-            print(menu_Principal)
-            opc_menu =int(input("Digite uma opção: "))
-            if(opc_menu == 1):
-                opc_menu = cl.Gerente.criar_projeto()
-            elif(opc_menu == 2):
-                opc_menu = cl.Gerente.atribui_tarefa()
-            elif(opc_menu == 3):
-                opc_menu = cl.Gerente.progresso_projeto()
-            elif(opc_menu == 4):
-                opc_menu = cl.Gerente.dashboard_projeto()
-            elif(opc_menu == 5):
-                opc_menu = cl.Gerente.gerenciamento_Prazo()
-            elif(opc_menu == 6):
-                opc_menu = cl.Gerente.gerar_relatorio()
-            elif(opc_menu == 7):
-                opc_menu = cl.Usuario.comunicacao()
-            elif(opc_menu == 8):
-                opc_menu = cl.Gerente.consultar_orcamento()
-            elif(opc_menu == 9):
-                opc_menu = cl.Gerente.historico_atividade()
-            elif(opc_menu == 10):
-                print("Finalizando o programa!")
-                opc_menu = 0
+        menu_option = None
+        while menu_option != 0:
+            print(menu_text)
+            try:
+                menu_option = int(input("Select an option: "))
+            except ValueError:
+                print("Invalid Option! Please enter a number!")
+                continue
+                
+            if menu_option == 1:
+                menu_option = cl.Manager.create_project()
+            elif menu_option == 2:
+                menu_option = cl.Manager.assign_task()
+            elif menu_option == 3:
+                menu_option = cl.Manager.project_progress()
+            elif menu_option == 4:
+                menu_option = cl.Manager.project_dashboard()
+            elif menu_option == 5:
+                menu_option = cl.Manager.deadline_management()
+            elif menu_option == 6:
+                menu_option = cl.Manager.generate_report()
+            elif menu_option == 7:
+                menu_option = cl.User.communication()
+            elif menu_option == 8:
+                menu_option = cl.Manager.check_budget()
+            elif menu_option == 9:
+                menu_option = cl.Manager.activity_history()
+            elif menu_option == 10:
+                print("Exiting program!")
+                menu_option = 0
             else:
-                print("Opção Incorreta! Digite novamente!")
+                print("Incorrect Option! Try again!")
     
-    elif(tipo_usuario == "GM"):
-        menu_Principal = """
-                                        Sistema de Gestão de Projetos
+    elif user_type == "GM":
+        menu_text = """
+                                        Project Management System
             
-            1 - Criação de Projetos                                    7 - Comunicação
-            2 - Atribuição de tarefas                                  8 - Orçamentos
-            3 - Progresso dos projetos                                 9 - Histórico Atividades
-            4 - Dashboard dos Projetos                                 10 - Configurações do Sistema
-            5 - Gerenciamento de Prazos                                11 - Finalizar Programa 
-            6 - Geração de Relatórios                             
+            1 - Create Project                                         7 - Communication
+            2 - Assign Tasks                                           8 - Budgets
+            3 - Project Progress                                       9 - Activity History
+            4 - Project Dashboard                                      10 - System Settings
+            5 - Deadline Management                                    11 - Exit Program 
+            6 - Generate Reports                             
         """
 
-        opc_menu = None
-        while(opc_menu != 0):
-            print(menu_Principal)
-            opc_menu =int(input("Digite uma opção: "))
-            if(opc_menu == 1):
-                opc_menu = cl.Gerente.criar_projeto()
-            elif(opc_menu == 2):
-                cl.Gerente.atribui_tarefa()
-            elif(opc_menu == 3):
-                opc_menu = cl.Usuario.progresso_projeto()
-            elif(opc_menu == 4):
-                cl.Gerente.dashboard_projeto()
-            elif(opc_menu == 5):
-                cl.Gerente.gerenciamento_Prazo()
-            elif(opc_menu == 6):
-                cl.Gerente.gerar_relatorio()
-            elif(opc_menu == 7):
-                cl.Usuario.comunicacao()
-            elif(opc_menu == 8):
-                cl.Gerente.consultar_orcamento()
-            elif(opc_menu == 9):
-                cl.Gerente.historico_atividade()
-            elif(opc_menu == 10):
-                cl.Gerente_Master.configuracao_Sistema()
-            elif(opc_menu == 11):
-                print("Finalizando o programa!")
-                opc_menu = 0
+        menu_option = None
+        while menu_option != 0:
+            print(menu_text)
+            try:
+                menu_option = int(input("Select an option: "))
+            except ValueError:
+                print("Invalid Option! Please enter a number!")
+                continue
+                
+            if menu_option == 1:
+                menu_option = cl.Manager.create_project()
+            elif menu_option == 2:
+                cl.Manager.assign_task()
+            elif menu_option == 3:
+                menu_option = cl.User.project_progress()
+            elif menu_option == 4:
+                cl.Manager.project_dashboard()
+            elif menu_option == 5:
+                cl.Manager.deadline_management()
+            elif menu_option == 6:
+                cl.Manager.generate_report()
+            elif menu_option == 7:
+                menu_option = cl.User.communication()
+            elif menu_option == 8:
+                menu_option = cl.Manager.check_budget()
+            elif menu_option == 9:
+                menu_option = cl.Manager.activity_history()
+            elif menu_option == 10:
+                cl.MasterManager.system_configuration()
+            elif menu_option == 11:
+                print("Exiting program!")
+                menu_option = 0
             else:
-                print("Opção Incorreta! Digite novamente!")
+                print("Incorrect Option! Try again!")
 
-def main():
-    db_service.criaBanco()
-    print("As tabelas foram criadas com sucesso.")
+def main() -> None:
+    db_service.create_database()
+    print("Database tables initialized successfully.")

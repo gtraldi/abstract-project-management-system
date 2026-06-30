@@ -2,420 +2,412 @@ import app.utils.db_methods as db_service
 import time
 from datetime import datetime
 
-class Usuario:
-    def login():
+class User:
+    @staticmethod
+    def login() -> tuple:
         menu = """
-                             Sistema de Gestão de Projetos                    
+                             Project Management System                    
         """
-
         print(menu)
-        login = input("Insira sua credencial de acesso (cpf): ")
-        senha = input("Insira a sua senha: ")
-
-        return login, senha
+        login_cpf = input("Enter your access credential (CPF): ")
+        password = input("Enter your password: ")
+        return login_cpf, password
     
-    def cadastro():
-        login = ""
-        senha = ""
+    @staticmethod
+    def register() -> tuple:
+        login_cpf = ""
+        password = ""
 
         menu = """
-                             Sistema de Gestão de Projetos                    
+                             Project Management System                    
         """
-
         print(menu)
-        tipo_usuario = input("Tipo do Usuário (Usuário (U), Gerente (G), Gerente Master (GM)): ")
-        if (tipo_usuario in ["U", "G", "GM"]):
-            if (tipo_usuario == "G" or tipo_usuario == "GM"):
-                primeiro_acesso = input("Primeiro Acesso? (s/n): ")
-                if primeiro_acesso == "s":
-                    tipo_usuario = "GM"
-                    print("Realize o cadastro de Gerente Master")
-                    nome = input("Insira seu nome: ")
-                    sobrenome = input("Insira seu sobrenome: ")
-                    email = input("Insira seu email: ")
-                    login = input("Insira seu cpf (apenas números): ")
-                    senha = input("Insira a sua senha: ")
-                    senha_master = input("Crie a sua senha de acesso privilegiado: ")
+        user_type = input("User Type (User (U), Manager (G), Master Manager (GM)): ")
+        if user_type in ["U", "G", "GM"]:
+            if user_type in ["G", "GM"]:
+                first_access = input("First Access? (y/n): ")
+                if first_access == "y":
+                    user_type = "GM"
+                    print("Register Master Manager details")
+                    first_name = input("Enter your first name: ")
+                    last_name = input("Enter your last name: ")
+                    email = input("Enter your email: ")
+                    login_cpf = input("Enter your CPF (numbers only): ")
+                    password = input("Enter your password: ")
+                    master_password = input("Create your privileged access password: ")
 
-                    db_service.cadastra_usuario(nome, sobrenome, email, login, senha, tipo_usuario, senha_master)
-                    print("\n\033[1mCadastro concluído com sucesso!\n\033[0m")
-                elif primeiro_acesso == "n":
-                    login_gm = input("Insira o cpf com acesso privilegiado: ")
-                    senha_master = input("Insira a senha para acesso privilegiado: ")
-                    permissao = db_service.verifica_GerenteMaster(login_gm, senha_master)
-                    if (permissao):
-                        nome = input("Insira seu nome: ")
-                        sobrenome = input("Insira seu sobrenome: ")
-                        email = input("Insira seu email: ")
-                        login = input("Insira seu cpf (apenas números): ")
-                        senha = input("Insira a sua senha: ")
-                        senha_master = input("Crie a sua senha de acesso privilegiado: ")
-                        db_service.cadastra_usuario(nome, sobrenome, email, login, senha, tipo_usuario, senha_master)
-                        print("\n\033[1mCadastro concluído com sucesso!\n\033[0m")
+                    db_service.register_user(first_name, last_name, email, login_cpf, password, user_type, master_password)
+                    print("\n\033[1mRegistration completed successfully!\n\033[0m")
+                elif first_access == "n":
+                    login_gm = input("Enter CPF with privileged access: ")
+                    master_password = input("Enter password for privileged access: ")
+                    permission = db_service.verify_master_manager(login_gm, master_password)
+                    if permission:
+                        first_name = input("Enter your first name: ")
+                        last_name = input("Enter your last name: ")
+                        email = input("Enter your email: ")
+                        login_cpf = input("Enter your CPF (numbers only): ")
+                        password = input("Enter your password: ")
+                        master_password = input("Create your privileged access password: ")
+                        db_service.register_user(first_name, last_name, email, login_cpf, password, user_type, master_password)
+                        print("\n\033[1mRegistration completed successfully!\n\033[0m")
                     else:
-                        print("\n\033[1mAcesso negado! Você não possui permissão!\n\033[0m")
+                        print("\n\033[1mAccess denied! You do not have permission!\n\033[0m")
 
-            elif (tipo_usuario == "U"):
-                nome = input("Insira seu nome: ")
-                sobrenome = input("Insira seu sobrenome: ")
-                email = input("Insira seu email: ")
-                login = input("Insira seu cpf (apenas números): ")
-                senha = input("Insira a sua senha: ")
+            elif user_type == "U":
+                first_name = input("Enter your first name: ")
+                last_name = input("Enter your last name: ")
+                email = input("Enter your email: ")
+                login_cpf = input("Enter your CPF (numbers only): ")
+                password = input("Enter your password: ")
 
-                db_service.cadastra_usuario(nome, sobrenome, email, login, senha, tipo_usuario)
-                print("\n\033[1mCadastro concluído com sucesso!\n\033[0m")
+                db_service.register_user(first_name, last_name, email, login_cpf, password, user_type)
+                print("\n\033[1mRegistration completed successfully!\n\033[0m")
         else:
-            print("\n\033[1mDigite um tipo de usuário válido!\033[0m")
+            print("\n\033[1mPlease enter a valid user type!\033[0m")
 
-        return login, senha
+        return login_cpf, password
     
+    @staticmethod
+    def project_progress() -> None:
+        user_id = []
+        user_projects = []
 
-    def progresso_projeto():
-        id_usuario = []
-        projetos_usuario = []
-
-        while(len(id_usuario) <= 0):
+        while len(user_id) <= 0:
             menu = """
-                                Sistema de Gestão de Projetos                    
+                                Project Management System                    
             """
             print(menu)
-            cpf = input("Digite o seu cpf: ")
-            id_usuario = db_service.consulta_id(cpf)
+            cpf = input("Enter your CPF: ")
+            user_id = db_service.get_user_id_by_cpf(cpf)
 
-            if(len(id_usuario) <= 0):
-                print("\n\033[1mUsuário Inválido!\n\033[0m")
+            if len(user_id) <= 0:
+                print("\n\033[1mInvalid User!\n\033[0m")
                 menu = """
-                                        Sistema de Gestão de Projetos
+                                        Project Management System
 
-                1 - Volta ao menu inicial                           2 - Tentar novamente                    
+                1 - Back to main menu                               2 - Try again                    
                 """
-
                 opc_menu = None
-                while(opc_menu != 1): 
+                while opc_menu != '1': 
                     print(menu)
-                    opc_menu = input("Selecione uma opção: ")
-                    if(opc_menu == '1'):
+                    opc_menu = input("Select an option: ")
+                    if opc_menu == '1':
                         return None
-                    elif(opc_menu == '2'):
+                    elif opc_menu == '2':
                         break
                     else:
-                        print("Digite uma opção válida!")
+                        print("Select a valid option!")
             
-        id_usuario = id_usuario[0][0]
+        user_id_val = user_id[0][0]
+        projects = db_service.get_all_projects()
 
-        projetos = db_service.consulta_projeto(id_usuario)
-
-        for projeto in projetos:
-            id = str(projeto[2])
-            if len(id) > 0:
-                ids_usuario = id.replace("[", "").replace("]", "").split(",")
-                for i in range(len(ids_usuario)):
-                    ids_usuario[i] = ids_usuario[i].strip()
+        for project in projects:
+            emp_ids = str(project[2])
+            if len(emp_ids) > 0:
+                ids_list = emp_ids.replace("[", "").replace("]", "").split(",")
+                for i in range(len(ids_list)):
+                    ids_list[i] = ids_list[i].strip()
                 
-                if(str(id_usuario) in ids_usuario):
-                    projetos_usuario.append(projeto)
+                if str(user_id_val) in ids_list:
+                    user_projects.append(project)
 
-        if(len(projetos_usuario) > 0):
-            for projeto in projetos_usuario:
-                print(f"\n\033[1mNome projeto\033[0m: {str(projeto[3])} - \033[1mStatus\033[0m: {str(projeto[7])}")
+        if len(user_projects) > 0:
+            for project in user_projects:
+                print(f"\n\033[1mProject Name\033[0m: {str(project[3])} - \033[1mStatus\033[0m: {str(project[7])}")
         else:
-            print("Nenhum projeto encontrado!")
+            print("No projects found!")
 
         time.sleep(5)
 
         opc_menu = None
-        while(opc_menu != 1):
+        while opc_menu != '1':
             menu = """
-                             Sistema de Gestão de Projetos
+                             Project Management System
             
-1 - Voltar ao menu inicial                                                    
+1 - Back to main menu                                                    
             """
-            
             print(menu)
-            opc_menu = input("Selecione uma opção: ")
-            if(opc_menu == '1'):
+            opc_menu = input("Select an option: ")
+            if opc_menu == '1':
                 return None
             else:
-                print("Digite uma opção válida!")
+                print("Select a valid option!")
 
-        
-    def comunicacao():
-        id_usuario = []
-        projetos_usuario = []
+    @staticmethod
+    def communication() -> None:
+        user_id = []
+        user_projects = []
 
-        while(len(id_usuario) <= 0):
+        while len(user_id) <= 0:
             menu = """
-                                Sistema de Gestão de Projetos                    
+                                Project Management System                    
             """
             print(menu)
-            cpf = input("Digite o seu cpf: ")
-            id_usuario = db_service.consulta_id(cpf)
+            cpf = input("Enter your CPF: ")
+            user_id = db_service.get_user_id_by_cpf(cpf)
 
-            if(len(id_usuario) <= 0):
-                print("\n\033[1mUsuário Inválido!\n\033[0m")
+            if len(user_id) <= 0:
+                print("\n\033[1mInvalid User!\n\033[0m")
                 menu = """
-                                        Sistema de Gestão de Projetos
+                                        Project Management System
 
-                1 - Volta ao menu inicial                           2 - Tentar novamente                    
+                1 - Back to main menu                               2 - Try again                    
                 """
-
                 opc_menu = None
-                while(opc_menu != 1): 
+                while opc_menu != '1': 
                     print(menu)
-                    opc_menu = input("Selecione uma opção: ")
-                    if(opc_menu == '1'):
+                    opc_menu = input("Select an option: ")
+                    if opc_menu == '1':
                         return None
-                    elif(opc_menu == '2'):
+                    elif opc_menu == '2':
                         break
                     else:
-                        print("Digite uma opção válida!")
+                        print("Select a valid option!")
         
-        id_usuario = id_usuario[0][0]
+        user_id_val = user_id[0][0]
+        projects = db_service.get_all_projects()
 
-        projetos = db_service.consulta_projeto(id_usuario)
-
-        for projeto in projetos:
-            id = str(projeto[2])
-            if len(id) > 0:
-                ids_usuario = id.replace("[", "").replace("]", "").split(",")
-                for i in range(len(ids_usuario)):
-                    ids_usuario[i] = ids_usuario[i].strip()
+        for project in projects:
+            emp_ids = str(project[2])
+            if len(emp_ids) > 0:
+                ids_list = emp_ids.replace("[", "").replace("]", "").split(",")
+                for i in range(len(ids_list)):
+                    ids_list[i] = ids_list[i].strip()
                 
-                if(str(id_usuario) in ids_usuario):
-                    projetos_usuario.append(projeto)
+                if str(user_id_val) in ids_list:
+                    user_projects.append(project)
         
-        if(len(projetos_usuario) > 0):
-            for projeto in projetos_usuario:
-                print(f"\n\033[1mID Projeto\033[0m: {str(projeto[0])} - \033[1mNome projeto\033[0m: {str(projeto[3])} - \033[1mCPF Gerente do projeto\033[0m: {str(projeto[1])}")
+        if len(user_projects) > 0:
+            for project in user_projects:
+                print(f"\n\033[1mProject ID\033[0m: {str(project[0])} - \033[1mProject Name\033[0m: {str(project[3])} - \033[1mManager CPF\033[0m: {str(project[1])}")
         else:
-            print("Nenhum projeto encontrado!")
+            print("No projects found!")
 
         time.sleep(5)
 
         opc_menu = None
-        while(opc_menu != 0):
+        while opc_menu != '0':
             menu = """
-                                    Sistema de Gestão de Projetos
+                                    Project Management System
             
-            1 - Enviar mensagem                                       2 - Voltar ao menu inicial                                                    
+            1 - Send Message                                          2 - Back to main menu                                                    
             """
-            
             print(menu)
-            opc_menu = input("Selecione uma opção: ")
-            if(opc_menu == '1'):
-                cpf_gerente = input("Informe o CPF do gerente responsável pelo projeto: ")
-                nome_gerente = db_service.consulta_nome_usuario(cpf_gerente)
+            opc_menu = input("Select an option: ")
+            if opc_menu == '1':
+                cpf_gerente = input("Enter the CPF of the manager responsible for this project: ")
+                nome_gerente = db_service.get_username_by_cpf(cpf_gerente)
 
-                if (nome_gerente):
-                    print(f"Chat com Gerente {nome_gerente.title()}")
-                    input("Digite sua mensagem: ")
-                    print("Enviando mensagem...")
+                if nome_gerente:
+                    print(f"Chat with Manager {nome_gerente.title()}")
+                    input("Type your message: ")
+                    print("Sending message...")
                     time.sleep(3)
-                    print("Mensagem enviada!")
+                    print("Message sent!")
                     time.sleep(2)
                 else:
-                    print("\n\033[1mCPF Inválido!\n\033[0m")
+                    print("\n\033[1mInvalid CPF!\n\033[0m")
                     opc_menu = None
-            elif(opc_menu == '2'):
+            elif opc_menu == '2':
                 break
-                return None
             else:
-                print("Digite uma opção válida!")
+                print("Select a valid option!")
 
 
-class Gerente(Usuario):
-    def criar_projeto():
-        id_usuario = []
+class Manager(User):
+    @staticmethod
+    def create_project() -> None:
+        user_id = []
         list_ids = []
         verifica = False
         opc_menu = None
 
-        while(len(id_usuario) <= 0 or not verifica):
+        while len(user_id) <= 0 or not verifica:
             menu = """
-                                Sistema de Gestão de Projetos                    
+                                Project Management System                    
             """
             print(menu)
-            cpf_gerente = input("Digite o seu CPF: ")
-            verifica = db_service.verifica_gerente(cpf_gerente)
+            cpf_gerente = input("Enter your CPF: ")
+            verifica = db_service.verify_manager(cpf_gerente)
             
-            if(not verifica):    
+            if not verifica:    
                 menu = """
-                                            Sistema de Gestão de Projetos
+                                            Project Management System
             
-                1 - Voltar ao menu inicial                                   2 - Tentar novamente                                                   
+                1 - Back to main menu                                        2 - Try again                                                   
                 """
-
                 print(menu)
-                opc_menu = input("Selecione uma opção: ")
-                while (opc_menu != 0):
-                    print("Selecione uma opção: ")
+                opc_menu = input("Select an option: ")
+                while opc_menu != '0':
                     if opc_menu == '1':
                         return None
                     elif opc_menu == '2':
                         break
                     else:
-                        print("\n\033[1mDigite uma opção válida!\n\033[0m")
+                        print("\n\033[1mSelect a valid option!\n\033[0m")
             else:
-                qtd_funcionarios = input("Digite a quantidade de funcionários que atuaram no projeto: ")
+                qtd_funcionarios = input("Enter the number of employees working on the project: ")
 
                 i = 0
-                while (i != int(qtd_funcionarios)):
-                    cpf_usuario = input("Digite o CPF do usuário atuará no projeto: ")
-                    id_usuario = db_service.consulta_id(cpf_usuario)
+                while i != int(qtd_funcionarios):
+                    cpf_usuario = input("Enter the CPF of the employee who will work on the project: ")
+                    user_id = db_service.get_user_id_by_cpf(cpf_usuario)
 
-                    if(len(id_usuario) <= 0):
-                        print("\n\033[1mUsuário Inválido!\n\033[0m")
+                    if len(user_id) <= 0:
+                        print("\n\033[1mInvalid User!\n\033[0m")
                         menu = """
-                                                Sistema de Gestão de Projetos
+                                                Project Management System
                 
-                        1 - Voltar ao menu inicial                                   2 - Tentar novamente                     
+                        1 - Back to main menu                                        2 - Try again                     
                         """
-
                         opc_menu = None
-                        while(opc_menu != 1): 
+                        while opc_menu != '1': 
                             print(menu)
-                            opc_menu = input("Selecione uma opção: ")
-                            if(opc_menu == '1'):
+                            opc_menu = input("Select an option: ")
+                            if opc_menu == '1':
                                 return None
-                            elif(opc_menu == '2'):
+                            elif opc_menu == '2':
                                 break
                             else:
-                                print("Digite uma opção válida!")
+                                print("Select a valid option!")
                     else:
-                        i+=1
-                        id_usuario = str(id_usuario[0][0])
-                        if(id_usuario in list_ids):
-                            print("\nEsse usuário já foi adicionado!\n")
+                        i += 1
+                        user_id_val = str(user_id[0][0])
+                        if user_id_val in list_ids:
+                            print("\nThis user has already been added!\n")
                         else:
-                            list_ids.append(id_usuario)
+                            list_ids.append(user_id_val)
                 
                 id_usuarios = ""
-                for id in list_ids:
-                    id_usuarios = id_usuarios + f"{id}, "
+                for id_val in list_ids:
+                    id_usuarios = id_usuarios + f"{id_val}, "
 
                 id_usuarios = f"[{id_usuarios}]"
                         
-                nome_projeto = input("Digite o nome do projeto: ")
-                finalidade = input("Digite a finalidade do projeto: ")
-                descricao = input("Insira a descrição do projeto: ")
+                nome_projeto = input("Enter project name: ")
+                finalidade = input("Enter project purpose: ")
+                descricao = input("Enter project description: ")
                 data_criacao = datetime.now().strftime("%d/%m/%Y")
-                orcamento = float(input("Digite o orçamento disponibilizado para o projeto: "))
+                orcamento = float(input("Enter budget allocated for the project: "))
 
-                db_service.cria_projeto(cpf_gerente, id_usuarios, nome_projeto, qtd_funcionarios, finalidade, descricao, data_criacao, orcamento)
-                print("Criando projeto...")
+                db_service.create_project(cpf_gerente, id_usuarios, nome_projeto, qtd_funcionarios, finalidade, descricao, data_criacao, orcamento)
+                print("Creating project...")
                 time.sleep(3)
-                print("Projeto criado com sucesso!")
+                print("Project created successfully!")
                 time.sleep(2)
-
                 return None
     
-
-    def progresso_projeto():
+    @staticmethod
+    def project_progress() -> None:
         projetos = []
-        while(len(projetos) <= 0):
+        while len(projetos) <= 0:
             menu = """
-                                Sistema de Gestão de Projetos                    
+                                Project Management System                    
             """
             print(menu)
-            cpf_gerente = input("Digite o seu cpf: ")
-            verifica = db_service.verifica_gerente(cpf_gerente)
-            if(not verifica):
+            cpf_gerente = input("Enter your CPF: ")
+            verifica = db_service.verify_manager(cpf_gerente)
+            if not verifica:
                 menu = """
-                                            Sistema de Gestão de Projetos
+                                            Project Management System
             
-                1 - Voltar ao menu inicial                                   2 - Tentar novamente                                                   
+                1 - Back to main menu                                        2 - Try again                                                   
                 """
-
                 print(menu)
-                opc_menu = input("Selecione uma opção: ")
-                while (opc_menu != 0):
-                    print("Selecione uma opção: ")
+                opc_menu = input("Select an option: ")
+                while opc_menu != '0':
                     if opc_menu == '1':
                         return None
                     elif opc_menu == '2':
                         break
                     else:
-                        print("\n\033[1mDigite uma opção válida!\n\033[0m")
+                        print("\n\033[1mSelect a valid option!\n\033[0m")
             else:
-                projetos = db_service.consulta_projeto_gerente(cpf_gerente)
+                projetos = db_service.get_projects_by_manager(cpf_gerente)
 
-                if(len(projetos) > 0):
-                    for projeto in projetos:
-                        print(f"\n\033[1mID Projeto\033[0m: {str(projeto[0])} - \033[1mNome projeto\033[0m: {str(projeto[3])} - "\
-                              + f"\033[1mStatus\033[0m: {str(projeto[7])} - \033[1mCPF Gerente do projeto\033[0m: {str(projeto[1])} - "\
-                                 + f"\033[1mID Usuário\033[0m: {str(projeto[2])} - \033[1mFuncionários\033[0m: {str(projeto[4])}")
-                        
+                if len(projetos) > 0:
+                    for project in projetos:
+                        print(f"\n\033[1mProject ID\033[0m: {str(project[0])} - \033[1mProject Name\033[0m: {str(project[3])} - " \
+                              + f"\033[1mStatus\033[0m: {str(project[7])} - \033[1mManager CPF\033[0m: {str(project[1])} - " \
+                              + f"\033[1mEmployee IDs\033[0m: {str(project[2])} - \033[1mEmployee Count\033[0m: {str(project[4])}")
                     time.sleep(5)
                 else:
-                    print("Nenhum projeto encontrado!")
-                    
+                    print("No projects found!")
                     time.sleep(5)
                     
                     opc_menu = None
-                    while(opc_menu != 1):
+                    while opc_menu != '1':
                         menu = """
-                                        Sistema de Gestão de Projetos
+                                        Project Management System
                         
-            1 - Voltar ao menu inicial                                                    
+            1 - Back to main menu                                                    
                         """
-                        
                         print(menu)
-                        opc_menu = input("Selecione uma opção: ")
-                        if(opc_menu == '1'):
+                        opc_menu = input("Select an option: ")
+                        if opc_menu == '1':
                             return None
                         else:
-                            print("Digite uma opção válida!")
+                            print("Select a valid option!")
 
-
-    def atribui_tarefa():
+    @staticmethod
+    def assign_task() -> None:
         verifica = False
-        while(not verifica):
+        while not verifica:
             menu = """
-                                    Sistema de Gestão de Projetos                    
+                                    Project Management System                    
                 """
             print(menu)
-            id_projeto = input("Digite o seu ID do projeto: ")
-            verifica = db_service.verifica_id_projeto(id_projeto)
+            id_projeto = input("Enter the project ID: ")
+            verifica = db_service.verify_project_id(id_projeto)
 
-            if(not verifica):
+            if not verifica:
                 menu = """
-                                            Sistema de Gestão de Projetos
+                                            Project Management System
             
-                1 - Voltar ao menu inicial                                   2 - Tentar novamente                                                   
+                1 - Back to main menu                                        2 - Try again                                                   
                 """
-
                 print(menu)
-                opc_menu = input("Selecione uma opção: ")
-                while (opc_menu != 0):
-                    print("Selecione uma opção: ")
+                opc_menu = input("Select an option: ")
+                while opc_menu != '0':
                     if opc_menu == '1':
                         return None
                     elif opc_menu == '2':
                         break
                     else:
-                        print("\n\033[1mDigite uma opção válida!\n\033[0m")
+                        print("\n\033[1mSelect a valid option!\n\033[0m")
             else:
-                descricao = input("Insira a descrição da tarefa: ")
-                db_service.cria_tarefa(id_projeto, descricao)
+                descricao = input("Enter task description: ")
+                db_service.create_task(id_projeto, descricao)
 
-                print("\nAtribuindo tarefa...")
+                print("\nAssigning task...")
                 time.sleep(2)
-                print("Tarefa criada com sucesso!")
+                print("Task created successfully!")
                 time.sleep(2)
                 return None
 
-    def dashboard_projeto():
+    @staticmethod
+    def project_dashboard() -> None:
         pass
-    def gerenciamento_Prazo():
+        
+    @staticmethod
+    def deadline_management() -> None:
         pass
-    def gerar_relatorio():
+        
+    @staticmethod
+    def generate_report() -> None:
         pass
-    def consultar_orcamento():
+        
+    @staticmethod
+    def check_budget() -> None:
         pass
-    def historico_atividade():
+        
+    @staticmethod
+    def activity_history() -> None:
         pass
 
 
-class Gerente_Master(Gerente):
-    def configuracao_Sistema():
+class MasterManager(Manager):
+    @staticmethod
+    def system_configuration() -> None:
         pass
