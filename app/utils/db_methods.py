@@ -1,5 +1,6 @@
 import sqlite3
 import os
+import bcrypt
 
 DB_PATH = "GestaoProjetos.db"
 
@@ -76,8 +77,8 @@ def verify_login(login_cpf: str, password: str) -> bool:
             cursor.execute(query, (login_cpf,))
             row = cursor.fetchone()
             if row:
-                stored_password = row[0]
-                if stored_password == password:
+                stored_hash = row[0]
+                if bcrypt.checkpw(password.encode('utf-8'), stored_hash.encode('utf-8')):
                     print("\n\033[1mWelcome! Access Connected!\033[0m")
                     return True
                 else:
@@ -126,9 +127,13 @@ def verify_master_manager(login_cpf: str, master_password: str) -> bool:
     try:
         with get_connection() as connection:
             cursor = connection.cursor()
-            query = "SELECT id FROM users WHERE cpf = ? AND user_type = 'GM' AND master_password = ?"
-            cursor.execute(query, (login_cpf, master_password))
-            return cursor.fetchone() is not None
+            query = "SELECT master_password FROM users WHERE cpf = ? AND user_type = 'GM'"
+            cursor.execute(query, (login_cpf,))
+            row = cursor.fetchone()
+            if row and row[0]:
+                stored_hash = row[0]
+                return bcrypt.checkpw(master_password.encode('utf-8'), stored_hash.encode('utf-8'))
+            return False
     except sqlite3.Error as e:
         print(f"Database error during master manager verification: {e}")
         return False
@@ -151,15 +156,20 @@ def verify_project_id(project_id: int) -> int:
         return None
 
 def register_user(first_name: str, last_name: str, email: str, login_cpf: str, password: str, user_type: str, master_password: str = None) -> None:
-    """Register a new user in the database."""
+    """Register a new user in the database with secure password hashing."""
     try:
+        hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        hashed_master = None
+        if master_password:
+            hashed_master = bcrypt.hashpw(master_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+            
         with get_connection() as connection:
             cursor = connection.cursor()
             query = """
                 INSERT INTO users (first_name, last_name, email, cpf, password, user_type, master_password)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
             """
-            cursor.execute(query, (first_name, last_name, email, login_cpf, password, user_type, master_password))
+            cursor.execute(query, (first_name, last_name, email, login_cpf, hashed_password, user_type, hashed_master))
             connection.commit()
     except sqlite3.Error as e:
         raise Exception(f"Database error during user registration: {e}")
