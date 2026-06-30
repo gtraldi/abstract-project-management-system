@@ -1,300 +1,254 @@
 import sqlite3
+import os
 
-def criaBanco():
-    conexao = sqlite3.connect("GestaoProjetos.db")
-    cursor = conexao.cursor()
-    tabela1 = """CREATE TABLE IF NOT EXISTS tab_usuario(
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                nome VARCHAR (20) NOT NULL,
-                sobrenome VARCHAR (60),
-                cpf VARCHAR(15) NOT NULL,
-                senha VARCHAR(10) NOT NULL,
-                email VARCHAR(25),
-                tipo_usuario VARCHAR(80) NOT NULL,
-                senha_master VARCHAR(80))"""
-                
-    tabela2 = """CREATE TABLE IF NOT EXISTS tab_projeto(
-                id_projeto INTEGER PRIMARY KEY AUTOINCREMENT,
-                cpf_gerente INTEGER (5) NOT NULL,
-                id_usuario INTEGER (5) NOT NULL,
-                nome_projeto VARCHAR(100) NOT NULL,
-                quantidade_funcionarios VARCHAR(10) NOT NULL,
-                finalidade VARCHAR(25),
-                descricao VARCHAR(100),
-                status_atualizado VARCHAR(80) NOT NULL,
-                data_criacao VARCHAR(10),
-                orçamento FLOAT (50),
-                FOREIGN KEY(id_usuario) REFERENCES tab_usuario(id)
-                FOREIGN KEY(cpf_gerente) REFERENCES tab_usuario(cpf))"""
+DB_PATH = "GestaoProjetos.db"
 
-    tabela3 = """CREATE TABLE IF NOT EXISTS tarefas (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                descricao TEXT NOT NULL,
-                projeto_id INTEGER,
-                funcionario_id INTEGER,
-                prazo VARCHAR(25),
-                FOREIGN KEY (projeto_id) REFERENCES Projeto(id),
-                FOREIGN KEY (funcionario_id) REFERENCES tab_usuario(id))"""
-    
-    tabela4 = """CREATE TABLE IF NOT EXISTS historico (
-                tipo_atividade VARCHAR(64) NOT NULL,
-                projeto_id INTEGER,
-                funcionario_id INTEGER,
-                data VARCHAR(25),
-                FOREIGN KEY (projeto_id) REFERENCES Projeto(id),
-                FOREIGN KEY (funcionario_id) REFERENCES tab_usuario(id))"""
+def get_connection():
+    """Create and return a database connection."""
+    return sqlite3.connect(DB_PATH)
 
-    cursor.execute(tabela1)
-    cursor.execute(tabela2)
-    cursor.execute(tabela3)
-    conexao.commit()
-    conexao.close()
+def create_database() -> None:
+    """Initialize the database and create tables if they do not exist."""
+    with get_connection() as connection:
+        cursor = connection.cursor()
+        
+        users_table = """
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            first_name VARCHAR(20) NOT NULL,
+            last_name VARCHAR(60),
+            cpf VARCHAR(15) NOT NULL UNIQUE,
+            password VARCHAR(80) NOT NULL,
+            email VARCHAR(50),
+            user_type VARCHAR(80) NOT NULL,
+            master_password VARCHAR(80)
+        )"""
+        
+        projects_table = """
+        CREATE TABLE IF NOT EXISTS projects (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            manager_cpf VARCHAR(15) NOT NULL,
+            employee_ids TEXT NOT NULL,
+            project_name VARCHAR(100) NOT NULL,
+            employee_count INTEGER NOT NULL,
+            purpose VARCHAR(100),
+            description TEXT,
+            status VARCHAR(80) NOT NULL,
+            created_at VARCHAR(10),
+            budget REAL,
+            FOREIGN KEY(manager_cpf) REFERENCES users(cpf)
+        )"""
+        
+        tasks_table = """
+        CREATE TABLE IF NOT EXISTS tasks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            description TEXT NOT NULL,
+            project_id INTEGER,
+            employee_id INTEGER,
+            deadline VARCHAR(25),
+            FOREIGN KEY (project_id) REFERENCES projects(id),
+            FOREIGN KEY (employee_id) REFERENCES users(id)
+        )"""
+        
+        history_table = """
+        CREATE TABLE IF NOT EXISTS history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            activity_type VARCHAR(64) NOT NULL,
+            project_id INTEGER,
+            employee_id INTEGER,
+            date VARCHAR(25),
+            FOREIGN KEY (project_id) REFERENCES projects(id),
+            FOREIGN KEY (employee_id) REFERENCES users(id)
+        )"""
+        
+        cursor.execute(users_table)
+        cursor.execute(projects_table)
+        cursor.execute(tasks_table)
+        cursor.execute(history_table)
+        connection.commit()
 
-
-def verifica_Login(login, senha):
-    conexao = sqlite3.connect("GestaoProjetos.db")
-    cursor = conexao.cursor()
-    cont = 0
-    sql = """SELECT * FROM tab_usuario WHERE cpf = ('""" + login + """');"""
-
-    sucesso = False
+def verify_login(login_cpf: str, password: str) -> bool:
+    """Verify if user login credentials are valid."""
     try:
-        cursor.execute(sql)
-        if(cursor.fetchall() != []):
-            conexao.commit()
-            conexao.close()
-            if(verifica_senha(senha)):
-                print("\n\033[1mSeja Bem Vindo! Acesso Conectado!\033[0m")
+        with get_connection() as connection:
+            cursor = connection.cursor()
+            query = "SELECT password FROM users WHERE cpf = ?"
+            cursor.execute(query, (login_cpf,))
+            row = cursor.fetchone()
+            if row:
+                stored_password = row[0]
+                if stored_password == password:
+                    print("\n\033[1mWelcome! Access Connected!\033[0m")
+                    return True
+                else:
+                    print("\n\033[1mIncorrect Password!\033[0m")
+                    return False
+            else:
+                print("\n\033[1mUser not registered!\033[0m")
+                return False
+    except sqlite3.Error as e:
+        print(f"Database error during login verification: {e}")
+        return False
+
+def verify_manager(manager_cpf: str) -> bool:
+    """Verify if a user exists with the given manager CPF."""
+    try:
+        with get_connection() as connection:
+            cursor = connection.cursor()
+            query = "SELECT id FROM users WHERE cpf = ?"
+            cursor.execute(query, (manager_cpf,))
+            if cursor.fetchone():
                 return True
             else:
-                print("\n\033[1mSenha Incorreta!\033[0m")
+                print("\n\033[1mInvalid CPF! Try again\n\033[0m")
                 return False
-        else:
-            print("\n\033[1mUsuário não cadastrado!\033[0m")
-            return False
-        
-    except sqlite3.IntegrityError as e:
-        raise Exception("Erro!", e)
-        conexao.commit()
-        conexao.close()
-        
+    except sqlite3.Error as e:
+        print(f"Database error during manager verification: {e}")
+        return False
 
-def verifica_senha(senha):
-    conexao = sqlite3.connect("GestaoProjetos.db")
-    cursor = conexao.cursor()
-    sql = """SELECT * FROM tab_usuario WHERE senha = ('""" + senha + """');"""
+def get_user_type(login_cpf: str) -> str:
+    """Get the user type (U, G, GM) for a given login CPF."""
     try:
-        cursor.execute(sql)
-        if(cursor.fetchall()!= []):
-            conexao.commit()
-            conexao.close()
-            return True
-        else:
-            return False
-        
-    except sqlite3.IntegrityError as e:
-        raise Exception("Erro!", e)
-        conexao.commit()
-        conexao.close()
-
-
-def verifica_gerente(cpf_gerente):
-    conexao = sqlite3.connect("GestaoProjetos.db")
-    cursor = conexao.cursor()
-    sql = f"""SELECT * FROM tab_usuario WHERE cpf = ({cpf_gerente});"""
-    try:
-        cursor.execute(sql)
-        if(cursor.fetchall() != []):
-            conexao.commit()
-            conexao.close()
-            return True
-        else:
-            print("\n\033[1mCPF inválido! Tente novamente\n\033[0m")
-            return False
-        
-    except sqlite3.IntegrityError as e:
-        raise Exception("Erro!", e)
-        conexao.commit()
-        conexao.close()
-
-
-def verifica_tipo_usuario(login):
-    conexao = sqlite3.connect("GestaoProjetos.db")
-    cursor = conexao.cursor()
-    sql = f"""SELECT tipo_usuario FROM tab_usuario WHERE cpf = ({login});"""
-    try:
-        cursor.execute(sql)
-        row = cursor.fetchone()
-        if(row != 'NULL' or row != 0):
-            conexao.commit()
-            conexao.close()
-            return row[0]
-    except sqlite3.IntegrityError as e:
-        raise Exception("Erro!", e)
-        conexao.commit()
-        conexao.close()
-
-
-def verifica_GerenteMaster(login, senha_master):
-    conexao = sqlite3.connect("GestaoProjetos.db")
-    cursor = conexao.cursor()
-    sql = f"""SELECT * FROM tab_usuario WHERE cpf = ('{login}') and tipo_usuario = ('GM') and senha_master = ('{senha_master}');"""
-    try:
-        cursor.execute(sql)
-        if(cursor.fetchall()):
-            conexao.commit()
-            conexao.close()
-            return True
-        else:
-            return False
-    except sqlite3.IntegrityError as e:
-        raise Exception("Erro!", e)
-        conexao.commit()
-        conexao.close()
-
-
-def verifica_id_projeto(id_projeto):
-    conexao = sqlite3.connect("GestaoProjetos.db")
-    cursor = conexao.cursor()
-    sql = f"""SELECT * FROM tab_projeto WHERE id_projeto = ({id_projeto});"""
-    try:
-        cursor.execute(sql)
-        row = cursor.fetchone()
-        if(row != 'NULL' or row != 0):
-            conexao.commit()
-            conexao.close()
-            return row[0]
-        else:
-            print("\n\033[1mID inválido! Projeto não encontrado, tente novamente\n\033[0m")
+        with get_connection() as connection:
+            cursor = connection.cursor()
+            query = "SELECT user_type FROM users WHERE cpf = ?"
+            cursor.execute(query, (login_cpf,))
+            row = cursor.fetchone()
+            if row:
+                return row[0]
             return None
-    except sqlite3.IntegrityError as e:
-        raise Exception("Erro!", e)
-        conexao.commit()
-        conexao.close()
+    except sqlite3.Error as e:
+        print(f"Database error getting user type: {e}")
+        return None
 
-
-def cadastra_usuario(nome, sobrenome, email, login, senha, tipo_usuario, senha_master=None):
-    conexao = sqlite3.connect("GestaoProjetos.db")
-    cursor = conexao.cursor()
-    sql = f"""INSERT INTO tab_usuario (nome, sobrenome, email, cpf, senha, tipo_usuario, senha_master)
-        VALUES ('{nome}', '{sobrenome}', '{email}', {login}, '{senha}', '{tipo_usuario}', '{senha_master}');"""
+def verify_master_manager(login_cpf: str, master_password: str) -> bool:
+    """Verify credentials for privilege access (Gerente Master)."""
     try:
-        cursor.execute(sql)
-        conexao.commit()
-        conexao.close()
-    except sqlite3.IntegrityError as e:
-        raise Exception("Erro!", e)
-        conexao.commit()
-        conexao.close()
+        with get_connection() as connection:
+            cursor = connection.cursor()
+            query = "SELECT id FROM users WHERE cpf = ? AND user_type = 'GM' AND master_password = ?"
+            cursor.execute(query, (login_cpf, master_password))
+            return cursor.fetchone() is not None
+    except sqlite3.Error as e:
+        print(f"Database error during master manager verification: {e}")
+        return False
 
-
-def consulta_id(cpf):
-    conexao = sqlite3.connect("GestaoProjetos.db")
-    cursor = conexao.cursor()
-    sql = f"""SELECT id FROM tab_usuario WHERE cpf = ('{cpf}');"""
+def verify_project_id(project_id: int) -> int:
+    """Verify if a project exists and return its ID, otherwise return None."""
     try:
-        cursor.execute(sql)
-        row = cursor.fetchall()
-        if(row != 'NULL' or row != 0 or row != []):
-            conexao.commit()
-            conexao.close()
-            return row
-        else:
-            return []
-    except sqlite3.IntegrityError as e:
-        raise Exception("Erro!", e)
-        conexao.commit()
-        conexao.close()
+        with get_connection() as connection:
+            cursor = connection.cursor()
+            query = "SELECT id FROM projects WHERE id = ?"
+            cursor.execute(query, (project_id,))
+            row = cursor.fetchone()
+            if row:
+                return row[0]
+            else:
+                print("\n\033[1mInvalid ID! Project not found, try again\n\033[0m")
+                return None
+    except sqlite3.Error as e:
+        print(f"Database error during project ID verification: {e}")
+        return None
 
-
-def consulta_projeto(id_usuario):
-    conexao = sqlite3.connect("GestaoProjetos.db")
-    cursor = conexao.cursor()
-    sql = f"""SELECT * FROM tab_projeto"""
+def register_user(first_name: str, last_name: str, email: str, login_cpf: str, password: str, user_type: str, master_password: str = None) -> None:
+    """Register a new user in the database."""
     try:
-        cursor.execute(sql)
-        row = cursor.fetchall()
-        if(row != 'NULL' or row != 0 or row != []):
-            conexao.commit()
-            conexao.close()
-            return row
-        else:
-            return []
-    except sqlite3.IntegrityError as e:
-        raise Exception("Erro!", e)
-        conexao.commit()
-        conexao.close()
+        with get_connection() as connection:
+            cursor = connection.cursor()
+            query = """
+                INSERT INTO users (first_name, last_name, email, cpf, password, user_type, master_password)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """
+            cursor.execute(query, (first_name, last_name, email, login_cpf, password, user_type, master_password))
+            connection.commit()
+    except sqlite3.Error as e:
+        raise Exception(f"Database error during user registration: {e}")
 
-
-def consulta_projeto_gerente(cpf_gerente):
-    conexao = sqlite3.connect("GestaoProjetos.db")
-    cursor = conexao.cursor()
-    sql = f"""SELECT * FROM tab_projeto WHERE cpf_gerente = {cpf_gerente};"""
+def get_user_id_by_cpf(cpf: str) -> list:
+    """Retrieve user ID(s) associated with a CPF."""
     try:
-        cursor.execute(sql)
-        row = cursor.fetchall()
-        if(row != 'NULL' or row != 0 or row != []):
-            conexao.commit()
-            conexao.close()
-            return row
-        else:
-            return []
-    except sqlite3.IntegrityError as e:
-        raise Exception("Erro!", e)
-        conexao.commit()
-        conexao.close()
+        with get_connection() as connection:
+            cursor = connection.cursor()
+            query = "SELECT id FROM users WHERE cpf = ?"
+            cursor.execute(query, (cpf,))
+            return cursor.fetchall()
+    except sqlite3.Error as e:
+        print(f"Database error retrieving user ID: {e}")
+        return []
 
-
-def consulta_nome_usuario(cpf):
-    conexao = sqlite3.connect("GestaoProjetos.db")
-    cursor = conexao.cursor()
-    sql = f"""SELECT nome FROM tab_usuario WHERE cpf = ('{cpf}');"""
+def get_all_projects() -> list:
+    """Get all projects from the database."""
     try:
-        cursor.execute(sql)
-        row = cursor.fetchone()
-        if(row != 'NULL' and row != 0 and row):
-            conexao.commit()
-            conexao.close()
-            return row[0]
-        else:
+        with get_connection() as connection:
+            cursor = connection.cursor()
+            query = "SELECT * FROM projects"
+            cursor.execute(query)
+            return cursor.fetchall()
+    except sqlite3.Error as e:
+        print(f"Database error retrieving all projects: {e}")
+        return []
+
+def get_projects_by_manager(manager_cpf: str) -> list:
+    """Get projects managed by a specific manager CPF."""
+    try:
+        with get_connection() as connection:
+            cursor = connection.cursor()
+            query = "SELECT * FROM projects WHERE manager_cpf = ?"
+            cursor.execute(query, (manager_cpf,))
+            return cursor.fetchall()
+    except sqlite3.Error as e:
+        print(f"Database error retrieving projects by manager: {e}")
+        return []
+
+def get_username_by_cpf(cpf: str) -> str:
+    """Get user's first name by their CPF."""
+    try:
+        with get_connection() as connection:
+            cursor = connection.cursor()
+            query = "SELECT first_name FROM users WHERE cpf = ?"
+            cursor.execute(query, (cpf,))
+            row = cursor.fetchone()
+            if row:
+                return row[0]
             return None
-    except sqlite3.IntegrityError as e:
-        raise Exception("Erro!", e)
-        conexao.commit()
-        conexao.close()
+    except sqlite3.Error as e:
+        print(f"Database error retrieving username: {e}")
+        return None
 
-
-def cria_projeto(cpf_gerente, id_usuario, nome_projeto, qtd_funcionarios, finalidade, descricao, data_criacao, orcamento):
-    conexao = sqlite3.connect("GestaoProjetos.db")
-    cursor = conexao.cursor()
-    sql = f"""INSERT INTO tab_projeto (cpf_gerente, id_usuario, nome_projeto, quantidade_funcionarios, finalidade, descricao,
-      status_atualizado, data_criacao, orçamento)
-        VALUES ('{cpf_gerente}', '{id_usuario}', '{nome_projeto}', {qtd_funcionarios}, '{finalidade}', '{descricao}', 'A fazer', '{data_criacao}', '{orcamento}');"""
+def create_project(manager_cpf: str, employee_ids: str, project_name: str, employee_count: int, purpose: str, description: str, created_at: str, budget: float) -> None:
+    """Insert a new project record into the database."""
     try:
-        cursor.execute(sql)
-        conexao.commit()
-        conexao.close()
-    except sqlite3.IntegrityError as e:
-        raise Exception("Erro!", e)
-        conexao.commit()
-        conexao.close()
+        with get_connection() as connection:
+            cursor = connection.cursor()
+            query = """
+                INSERT INTO projects (manager_cpf, employee_ids, project_name, employee_count, purpose, description, status, created_at, budget)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """
+            cursor.execute(query, (manager_cpf, employee_ids, project_name, employee_count, purpose, description, 'To Do', created_at, budget))
+            connection.commit()
+    except sqlite3.Error as e:
+        raise Exception(f"Database error during project creation: {e}")
 
-
-def cria_tarefa(id_projeto, descricao):
-    conexao = sqlite3.connect("GestaoProjetos.db")
-    cursor = conexao.cursor()
-
-    sql_id_usuario = f"""SELECT id_usuario FROM tab_projeto WHERE id_projeto = ({id_projeto})"""
-    cursor.execute(sql_id_usuario)
-    id_usuario = cursor.fetchall()[0][0]
-
-    sql = f"""INSERT INTO Tarefas (descricao, projeto_id, funcionario_id)
-        VALUES ('{descricao}', {id_projeto}, {id_usuario});"""
+def create_task(project_id: int, description: str) -> None:
+    """Create a task for a project, assigning it to the project's primary user/employee."""
     try:
-        cursor.execute(sql)
-        conexao.commit()
-        conexao.close()
-    except sqlite3.IntegrityError as e:
-        raise Exception("Erro!", e)
-        conexao.commit()
-        conexao.close()
+        with get_connection() as connection:
+            cursor = connection.cursor()
+            
+            query_user = "SELECT employee_ids FROM projects WHERE id = ?"
+            cursor.execute(query_user, (project_id,))
+            row = cursor.fetchone()
+            if not row:
+                raise Exception("Project not found.")
+            
+            emp_ids_str = row[0].replace("[", "").replace("]", "").strip()
+            first_emp_id = int(emp_ids_str.split(",")[0].strip())
+            
+            query_task = """
+                INSERT INTO tasks (description, project_id, employee_id)
+                VALUES (?, ?, ?)
+            """
+            cursor.execute(query_task, (description, project_id, first_emp_id))
+            connection.commit()
+    except sqlite3.Error as e:
+        raise Exception(f"Database error during task creation: {e}")
