@@ -1,17 +1,27 @@
 import sqlite3
 import os
+import bcrypt
+from contextlib import contextmanager
 
 DB_PATH = "GestaoProjetos.db"
 
-def get_connection():
-    """Create and return a database connection."""
-    return sqlite3.connect(DB_PATH)
+@contextmanager
+def db_session(commit=True):
+    """Context manager for database sessions. Handles connections, commits, rollbacks, and closing."""
+    connection = sqlite3.connect(DB_PATH)
+    try:
+        yield connection.cursor()
+        if commit:
+            connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
+    finally:
+        connection.close()
 
 def create_database() -> None:
     """Initialize the database and create tables if they do not exist."""
-    with get_connection() as connection:
-        cursor = connection.cursor()
-        
+    with db_session() as cursor:
         users_table = """
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -65,19 +75,17 @@ def create_database() -> None:
         cursor.execute(projects_table)
         cursor.execute(tasks_table)
         cursor.execute(history_table)
-        connection.commit()
 
 def verify_login(login_cpf: str, password: str) -> bool:
     """Verify if user login credentials are valid."""
     try:
-        with get_connection() as connection:
-            cursor = connection.cursor()
+        with db_session(commit=False) as cursor:
             query = "SELECT password FROM users WHERE cpf = ?"
             cursor.execute(query, (login_cpf,))
             row = cursor.fetchone()
             if row:
-                stored_password = row[0]
-                if stored_password == password:
+                stored_hash = row[0]
+                if bcrypt.checkpw(password.encode('utf-8'), stored_hash.encode('utf-8')):
                     print("\n\033[1mWelcome! Access Connected!\033[0m")
                     return True
                 else:
@@ -93,8 +101,7 @@ def verify_login(login_cpf: str, password: str) -> bool:
 def verify_manager(manager_cpf: str) -> bool:
     """Verify if a user exists with the given manager CPF."""
     try:
-        with get_connection() as connection:
-            cursor = connection.cursor()
+        with db_session(commit=False) as cursor:
             query = "SELECT id FROM users WHERE cpf = ?"
             cursor.execute(query, (manager_cpf,))
             if cursor.fetchone():
@@ -109,8 +116,7 @@ def verify_manager(manager_cpf: str) -> bool:
 def get_user_type(login_cpf: str) -> str:
     """Get the user type (U, G, GM) for a given login CPF."""
     try:
-        with get_connection() as connection:
-            cursor = connection.cursor()
+        with db_session(commit=False) as cursor:
             query = "SELECT user_type FROM users WHERE cpf = ?"
             cursor.execute(query, (login_cpf,))
             row = cursor.fetchone()
@@ -124,11 +130,14 @@ def get_user_type(login_cpf: str) -> str:
 def verify_master_manager(login_cpf: str, master_password: str) -> bool:
     """Verify credentials for privilege access (Gerente Master)."""
     try:
-        with get_connection() as connection:
-            cursor = connection.cursor()
-            query = "SELECT id FROM users WHERE cpf = ? AND user_type = 'GM' AND master_password = ?"
-            cursor.execute(query, (login_cpf, master_password))
-            return cursor.fetchone() is not None
+        with db_session(commit=False) as cursor:
+            query = "SELECT master_password FROM users WHERE cpf = ? AND user_type = 'GM'"
+            cursor.execute(query, (login_cpf,))
+            row = cursor.fetchone()
+            if row and row[0]:
+                stored_hash = row[0]
+                return bcrypt.checkpw(master_password.encode('utf-8'), stored_hash.encode('utf-8'))
+            return False
     except sqlite3.Error as e:
         print(f"Database error during master manager verification: {e}")
         return False
@@ -136,8 +145,7 @@ def verify_master_manager(login_cpf: str, master_password: str) -> bool:
 def verify_project_id(project_id: int) -> int:
     """Verify if a project exists and return its ID, otherwise return None."""
     try:
-        with get_connection() as connection:
-            cursor = connection.cursor()
+        with db_session(commit=False) as cursor:
             query = "SELECT id FROM projects WHERE id = ?"
             cursor.execute(query, (project_id,))
             row = cursor.fetchone()
@@ -151,24 +159,26 @@ def verify_project_id(project_id: int) -> int:
         return None
 
 def register_user(first_name: str, last_name: str, email: str, login_cpf: str, password: str, user_type: str, master_password: str = None) -> None:
-    """Register a new user in the database."""
+    """Register a new user in the database with secure password hashing."""
     try:
-        with get_connection() as connection:
-            cursor = connection.cursor()
+        hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        hashed_master = None
+        if master_password:
+            hashed_master = bcrypt.hashpw(master_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+            
+        with db_session() as cursor:
             query = """
                 INSERT INTO users (first_name, last_name, email, cpf, password, user_type, master_password)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
             """
-            cursor.execute(query, (first_name, last_name, email, login_cpf, password, user_type, master_password))
-            connection.commit()
+            cursor.execute(query, (first_name, last_name, email, login_cpf, hashed_password, user_type, hashed_master))
     except sqlite3.Error as e:
         raise Exception(f"Database error during user registration: {e}")
 
 def get_user_id_by_cpf(cpf: str) -> list:
     """Retrieve user ID(s) associated with a CPF."""
     try:
-        with get_connection() as connection:
-            cursor = connection.cursor()
+        with db_session(commit=False) as cursor:
             query = "SELECT id FROM users WHERE cpf = ?"
             cursor.execute(query, (cpf,))
             return cursor.fetchall()
@@ -179,8 +189,7 @@ def get_user_id_by_cpf(cpf: str) -> list:
 def get_all_projects() -> list:
     """Get all projects from the database."""
     try:
-        with get_connection() as connection:
-            cursor = connection.cursor()
+        with db_session(commit=False) as cursor:
             query = "SELECT * FROM projects"
             cursor.execute(query)
             return cursor.fetchall()
@@ -191,8 +200,7 @@ def get_all_projects() -> list:
 def get_projects_by_manager(manager_cpf: str) -> list:
     """Get projects managed by a specific manager CPF."""
     try:
-        with get_connection() as connection:
-            cursor = connection.cursor()
+        with db_session(commit=False) as cursor:
             query = "SELECT * FROM projects WHERE manager_cpf = ?"
             cursor.execute(query, (manager_cpf,))
             return cursor.fetchall()
@@ -203,8 +211,7 @@ def get_projects_by_manager(manager_cpf: str) -> list:
 def get_username_by_cpf(cpf: str) -> str:
     """Get user's first name by their CPF."""
     try:
-        with get_connection() as connection:
-            cursor = connection.cursor()
+        with db_session(commit=False) as cursor:
             query = "SELECT first_name FROM users WHERE cpf = ?"
             cursor.execute(query, (cpf,))
             row = cursor.fetchone()
@@ -218,23 +225,19 @@ def get_username_by_cpf(cpf: str) -> str:
 def create_project(manager_cpf: str, employee_ids: str, project_name: str, employee_count: int, purpose: str, description: str, created_at: str, budget: float) -> None:
     """Insert a new project record into the database."""
     try:
-        with get_connection() as connection:
-            cursor = connection.cursor()
+        with db_session() as cursor:
             query = """
                 INSERT INTO projects (manager_cpf, employee_ids, project_name, employee_count, purpose, description, status, created_at, budget)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """
             cursor.execute(query, (manager_cpf, employee_ids, project_name, employee_count, purpose, description, 'To Do', created_at, budget))
-            connection.commit()
     except sqlite3.Error as e:
         raise Exception(f"Database error during project creation: {e}")
 
 def create_task(project_id: int, description: str) -> None:
     """Create a task for a project, assigning it to the project's primary user/employee."""
     try:
-        with get_connection() as connection:
-            cursor = connection.cursor()
-            
+        with db_session() as cursor:
             query_user = "SELECT employee_ids FROM projects WHERE id = ?"
             cursor.execute(query_user, (project_id,))
             row = cursor.fetchone()
@@ -249,6 +252,5 @@ def create_task(project_id: int, description: str) -> None:
                 VALUES (?, ?, ?)
             """
             cursor.execute(query_task, (description, project_id, first_emp_id))
-            connection.commit()
     except sqlite3.Error as e:
         raise Exception(f"Database error during task creation: {e}")
